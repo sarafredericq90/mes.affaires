@@ -1,0 +1,73 @@
+import paramiko
+import cmd
+import time
+import sys
+import os
+
+buff = ''
+resp = ''
+HOST = ''
+#HOST = "172.22.81.18"
+USER = "bamboo"
+mykey = "paramiko.RSAKey.from_private_key_file(privatekeyfile)"
+
+
+
+
+
+#connect to host
+
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+privatekeyfile = '/home/bamboo/.ssh/id_rsa'
+username = 'bamboo'
+mykey = paramiko.RSAKey.from_private_key_file(privatekeyfile)
+#ssh.connect(hostname='172.22.81.18', username=USER, pkey=mykey)
+list = ["172.22.81.18",
+        "172.22.81.16",
+       ]
+for tenant in list:
+  ssh.connect(tenant, username=USER, pkey=mykey)
+  print "SSH connection to %s established" %HOST
+  chan = ssh.invoke_shell()
+
+#turn off paging
+  chan.send('terminal length 0\n')
+  time.sleep(1)
+  resp = chan.recv(9999)
+  output = resp.decode('ascii').split(',')
+
+#Display output of second command
+  chan.send('sudo su - apache')
+  chan.send('\n')
+  time.sleep(1)
+  resp = chan.recv(9999)
+  output = resp.decode('ascii').split(',')
+  print (''.join(output))
+
+#Display output of 1st command 
+  chan.send('cd /var/www/html/wwwroot/testint.precheck_gov_build/docroot/')
+#/var/www/html/wwwroot/testint.precheck_gov_build/docroot/ path to testing
+  chan.send('\n')
+  time.sleep(1)
+  resp = chan.recv(9999)
+  output = resp.decode('ascii').split(',')
+  print (''.join(output))
+
+#Display output of 3rd command
+  chan.send('terminal length 0\n')
+  chan.send('drush ups --security-only | grep SECURITY')
+  chan.send('\n')
+  time.sleep(60)
+  resp = chan.recv(9999)
+  output = resp.decode('ascii').split(',')
+  print (''.join(output))
+  chan.send('\n')
+  for line in output:
+    if "SECURITY" in line:
+        print ('Failed, User has outdated module')
+        sys.exit(0)
+    else:
+       print ('Call API')
+else:
+       print ('The loop is completed')
